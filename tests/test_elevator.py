@@ -3,24 +3,69 @@ from elevator import Passenger
 from .utils import check_stdout
 
 
-"""
-def testElevator(self):
+def test_elevator_can_report_door_status():
     elevator = Elevator(name="Elevator 1")
-    assert elevator.state == "idle"
-    assert elevator.floor == elevator.home_floor
-    # create a passenger that wants to go to floor 2
+    if elevator.door_status == "closed":
+        elevator.open_doors()
+        assert elevator.door_status == "open"
+    elif elevator.door_status == "open":
+        elevator.close_doors()
+        assert elevator.door_status == "closed"
+    else:
+        assert False, "{} starting door status appears to be neither open or closed".format(elevator.name)
+
+
+def test_elevator_can_only_carry_passengers_when_door_is_open():
+    elevator = Elevator(name="Elevator 1")
+    assert elevator.door_status == "closed"
     passenger_1 = Passenger(destination=2)
-    # create a passenger that wants to go to floor 3
-    passenger_2 = Passenger(destination=3)
+    try:
+        elevator.load_passengers([passenger_1])
+        assert False, "No Exception was thrown"
+    except Exception as ex:
+        assert str(ex) == "You tried to load passengers into {} while it was in state {}!".format(elevator.name, elevator.state)
+
+
+def test_elevator_can_carry_passengers_to_one_floor(capsys):
+    elevator = Elevator(name="Elevator 1")
+    passenger_1 = Passenger(destination=2)
+    passenger_2 = Passenger(destination=2)
+    elevator.open_doors()
     elevator.load_passengers([passenger_1, passenger_2])
+    assert passenger_1 in elevator.passengers
+    assert passenger_2 in elevator.passengers
     elevator.goto_floor(2)
-    assert elevator.floor == 2
     elevator.unload_passengers()
-    assert elevator.passengers == 1
+    assert len(elevator.passengers) == 0
+
+
+def test_elevator_will_not_alight_passengers_at_wrong_floor():
+    elevator = Elevator(name="Elevator 1")
+    passenger_1 = Passenger(destination=2)
+    passenger_2 = Passenger(destination=2)
+    elevator.open_doors()
+    elevator.load_passengers([passenger_1, passenger_2])
     elevator.goto_floor(3)
     elevator.unload_passengers()
-    assert elevator.passengers == 0
-"""
+    assert len(elevator.passengers) == 2
+
+
+def test_elevator_can_alight_different_passengers_at_different_floors():
+    elevator = Elevator(name="Elevator 1")
+    passenger_1 = Passenger(destination=2)
+    passenger_2 = Passenger(destination=3)
+    elevator.open_doors()
+    elevator.load_passengers([passenger_1, passenger_2])
+    elevator.goto_floor(2)
+    elevator.unload_passengers()
+    assert passenger_1 not in elevator.passengers
+    assert passenger_2 in elevator.passengers
+    assert len(elevator.passengers) == 1
+    elevator.goto_floor(3)
+    elevator.unload_passengers()
+    assert passenger_1 not in elevator.passengers
+    assert passenger_2 not in elevator.passengers
+    assert len(elevator.passengers) == 0
 
 
 def test_elevator_can_open_doors_on_start(capsys):

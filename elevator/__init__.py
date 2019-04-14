@@ -16,16 +16,20 @@ class Elevator():
         "arrival": "{} arrived at floor {}"
     }
 
-    def __init__(self, *, name="Main Elevator", starting_floor=1, home_floor=1):
+    def __init__(self, *, name="Main Elevator", starting_floor=1, home_floor=1, passenger_pax_capacity=10):
 
         self.name = name
 
         # initialise the state machine with its states
         self.machine = Machine(model=self, states=Elevator.STATES, initial="doors_closed", send_event=True)
 
-        # initialise state variables
-        self.passengers = 0
+        # initialise model parameters
+        self.passenger_pax_capacity = 10
+        self.passenger_weight_capacity = 800
         self.home_floor = home_floor
+
+        # initialise state variables
+        self.passengers = []
         self.floor = starting_floor
         self.next = None
 
@@ -34,7 +38,6 @@ class Elevator():
         self.machine.add_transition("start_moving_to", "doors_closed", "moving", before="on_start_moving_to")
         self.machine.add_transition("stop", "moving", "doors_closed", before="on_stop")
         self.machine.add_transition("open_doors", "doors_closed", "doors_opening", before="on_open_doors", after="after_open_doors")
-        self.machine.add_transition("load_passengers", "idle", "")
 
     def goto_floor(self, floor):
         if self.state == "doors_open":
@@ -46,6 +49,35 @@ class Elevator():
 
     def goto_home(self):
         self.goto_floor(self.home_floor)
+
+    def load_passengers(self, passengers):
+        if self.state != "doors_open":
+            raise ValueError("You tried to load passengers into {} while it was in state {}!".format(self.name, self.state))
+        passengers = passengers.copy()
+        for passenger in passengers:
+            if type(passenger) is not Passenger:
+                raise ValueError("You tried to load something into {} that is not a passenger!".format(self.name))
+            if passenger.destination == self.floor:
+                raise ValueError("You tried to load a passenger into {} whose destination is the same floor ({})".format(self.name, passenger.destination))
+        while True:
+            if len(passengers) == 0:
+                return []
+            next_passenger = passengers.pop(0)
+            pax_capacity_exceeded = len(self.passengers) >= self.passenger_pax_capacity
+            weight_capacity_exceeded = sum([p.weight for p in self.passengers]) > self.passenger_weight_capacity - next_passenger.weight
+            if pax_capacity_exceeded or weight_capacity_exceeded:
+                passengers.insert(next_passenger, 0)
+                return passengers
+            else:
+                self.passengers.append(next_passenger)
+        raise Exception("Somehow, you managed to reach unreachable code")
+
+    def unload_passengers(self):
+        if self.state != "doors_open":
+            raise ValueError("You tried to unload passengers from {} while it was in state {}!".format(self.name, self.state))
+        alighting_passengers = list(filter(lambda p: p.destination == self.floor, self.passengers))
+        self.passengers = list(filter(lambda p: p.destination != self.floor, self.passengers))
+        return alighting_passengers
 
     def on_close_doors(self, event):
         print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name))
@@ -97,12 +129,24 @@ class Elevator():
     def get_next(self):
         return self._next
 
+    def get_door_status(self):
+        if self.state == "doors_closed" or self.state == "moving":
+            return "closed"
+        elif self.state == "doors_closing":
+            return "closing"
+        elif self.state == "doors_opening":
+            return "opening"
+        elif self.state == "doors_open":
+            return "open"
+
     floor = property(get_floor, set_floor)
     home_floor = property(get_home_floor, set_home_floor)
     next = property(get_next, set_next)
+    door_status = property(get_door_status)
 
 
 class Passenger():
 
-    def __init__(self, *, destination):
+    def __init__(self, *, destination=1, weight=60):
         self.destination = destination
+        self.weight = weight
