@@ -150,3 +150,14 @@ class Passenger():
     def __init__(self, *, destination=1, weight=60):
         self.destination = destination
         self.weight = weight
+
+    def get_weight(self):
+        return self._weight
+
+    def set_weight(self, weight):
+        if type(weight) is not int or weight < 0:
+            raise ValueError("You tried to assign weight of passenger to a non-positive number: {}".format(weight))
+        else:
+            self._weight = weight
+
+    weight = property(get_weight, set_weight)
