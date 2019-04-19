@@ -1,5 +1,8 @@
 from transitions import Machine
 
+import asyncio
+import time
+
 
 class Elevator():
 
@@ -22,6 +25,10 @@ class Elevator():
 
         # initialise the state machine with its states
         self.machine = Machine(model=self, states=Elevator.STATES, initial="doors_closed", send_event=True)
+
+        # initialise simulation parameters
+        self.door_action_duration = 0.5  # the time in seconds it takes for the doors to open and close
+        self.floor_movement_duration = 0.15  # the time in seconds it takes for the elevator to travel one floor
 
         # initialise model parameters
         self.passenger_pax_capacity = 10
@@ -81,6 +88,7 @@ class Elevator():
 
     def on_close_doors(self, event):
         print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name))
+        time.sleep(self.door_action_duration)
 
     def after_close_doors(self, event):
         self.to_doors_closed()
@@ -89,6 +97,7 @@ class Elevator():
         self.next = event.args[0]
         direction = "up" if self.next > self.floor else "down"
         print(Elevator.MESSAGE_TEMPLATES["departure"].format(self.name, direction, self.next))
+        time.sleep(self.floor_movement_duration * abs(self.next - self.floor))
 
     def on_stop(self, event):
         print(Elevator.MESSAGE_TEMPLATES["arrival"].format(self.name, self.next))
