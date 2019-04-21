@@ -217,3 +217,24 @@ class Passenger():
             self._weight = weight
 
     weight = property(get_weight, set_weight)
+
+
+class ElevatorSystem():
+    def __init__(self, name):
+        self.name = name
+        self.elevators = []
+        self.floors = {}
+
+    def count_total_passengers(self):
+        return sum([len(v) for k, v in self.floors.items()])
+
+    def add_passengers_at_floor(self, passengers, floor):
+        if self.floors.get(floor) is None:
+            self.floors[floor] = []
+        self.floors[floor].append(passengers)
+
+    # to be extended based on implementation
+    def run_until_system_empty(self):
+        while self.count_total_passengers() != 0:
+            break
+            pass
