@@ -27,9 +27,24 @@ class Elevator():
         self.machine = Machine(model=self, states=Elevator.STATES, initial="doors_closed", send_event=True)
 
         # initialise simulation parameters
-        self.door_action_duration = 0.5  # the time in seconds it takes for the doors to open and close
+        self.door_action_duration = 2  # the time in seconds it takes for the doors to open and close
         self.floor_movement_duration = 0.15  # the time in seconds it takes for the elevator to travel one floor
 
+        # initialise simulation callbacks
+        self.close_doors_callbacks = {
+            "before": [self.print_doors_closing_message],
+            "after": []
+        }
+        self.open_doors_callbacks = {
+            "before": [self.print_doors_opening_message],
+            "after": []
+        }
+        self.move_to_callbacks = {
+            "start_moving": [self.print_departure_message],
+            "enter_floor": [],
+            "exit_floor": [],
+            "stop_moving": [self.print_arrival_message]
+        }
         # initialise model parameters
         self.passenger_pax_capacity = 10
         self.passenger_weight_capacity = 800
@@ -41,21 +56,67 @@ class Elevator():
         self.next = None
 
         # add transitions
-        self.machine.add_transition("close_doors", "doors_open", "doors_closing", before="on_close_doors", after="after_close_doors")
-        self.machine.add_transition("start_moving_to", "doors_closed", "moving", before="on_start_moving_to")
-        self.machine.add_transition("stop", "moving", "doors_closed", before="on_stop")
-        self.machine.add_transition("open_doors", "doors_closed", "doors_opening", before="on_open_doors", after="after_open_doors")
+        self.machine.add_transition("_close_doors", "doors_open", "doors_closing")
+        self.machine.add_transition("_start_moving", "doors_closed", "moving")
+        self.machine.add_transition("_stop_moving", "moving", "doors_closed")
+        self.machine.add_transition("_open_doors", "doors_closed", "doors_opening")
 
-    def goto_floor(self, floor):
+    async def goto_floor(self, floor):
         if self.state == "doors_open":
-            self.close_doors()
-        self.start_moving_to(floor)
+            await self.close_doors()
+        await self.move_to(floor)
         # pass time...
-        self.stop()
-        self.open_doors()
+        await self.open_doors()
 
-    def goto_home(self):
-        self.goto_floor(self.home_floor)
+    async def close_doors(self):
+        for callback in self.close_doors_callbacks["before"]:
+            callback(None)
+        self._close_doors()
+        await asyncio.sleep(self.door_action_duration)
+        self.to_doors_closed()
+        for callback in self.close_doors_callbacks["after"]:
+            callback(None)
+
+    async def open_doors(self):
+        for callback in self.open_doors_callbacks["before"]:
+            callback(None)
+        self._open_doors()
+        await asyncio.sleep(self.door_action_duration)
+        self.to_doors_open()
+        for callback in self.close_doors_callbacks["after"]:
+            callback(None)
+
+    def print_doors_closing_message(self, event):
+        print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name))
+
+    def print_doors_opening_message(self, event):
+        print(Elevator.MESSAGE_TEMPLATES["doors_opening"].format(self.name))
+
+    async def move_to(self, floor):
+        starting_floor = self.floor
+        self.next = floor
+        dir = -1 if starting_floor > floor else 1
+        floor_range = range(starting_floor + dir, floor + dir, dir)
+        self._start_moving()
+        # handle custom event callbacks
+        for callback in self.move_to_callbacks["start_moving"]:
+            callback()
+        for i in floor_range:
+            # handle custom event callbacks
+            for callback in self.move_to_callbacks["exit_floor"]:
+                callback()
+            await asyncio.sleep(self.floor_movement_duration)
+            self.floor = i
+            for callback in self.move_to_callbacks["enter_floor"]:
+                callback()
+            # handle custom event callbacks
+        self._stop_moving()
+        # handle custom event callbacks
+        for callback in self.move_to_callbacks["stop_moving"]:
+            callback()
+
+    async def goto_home(self):
+        await self.goto_floor(self.home_floor)
 
     def load_passengers(self, passengers):
         if self.state != "doors_open":
@@ -86,28 +147,14 @@ class Elevator():
         self.passengers = list(filter(lambda p: p.destination != self.floor, self.passengers))
         return alighting_passengers
 
-    def on_close_doors(self, event):
-        print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name))
-        time.sleep(self.door_action_duration)
-
-    def after_close_doors(self, event):
-        self.to_doors_closed()
-
-    def on_start_moving_to(self, event):
-        self.next = event.args[0]
+    def print_departure_message(self):
         direction = "up" if self.next > self.floor else "down"
         print(Elevator.MESSAGE_TEMPLATES["departure"].format(self.name, direction, self.next))
         time.sleep(self.floor_movement_duration * abs(self.next - self.floor))
 
-    def on_stop(self, event):
+    def print_arrival_message(self):
         print(Elevator.MESSAGE_TEMPLATES["arrival"].format(self.name, self.next))
         self.floor = self.next
-
-    def on_open_doors(self, event):
-        print(Elevator.MESSAGE_TEMPLATES["doors_opening"].format(self.name))
-
-    def after_open_doors(self, event):
-        self.to_doors_open()
 
     def set_floor(self, floor):
         if type(floor) is not int:
