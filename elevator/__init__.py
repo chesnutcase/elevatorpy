@@ -2,6 +2,7 @@ from transitions import Machine
 
 import asyncio
 import time
+import random
 
 
 class Elevator():
@@ -29,6 +30,7 @@ class Elevator():
         # initialise simulation parameters
         self.door_action_duration = 1  # the time in seconds it takes for the doors to open and close
         self.floor_movement_duration = 1  # the time in seconds it takes for the elevator to travel one floor
+        self.time_scale = 1  # for speeding up / slowing down the simulation
 
         # initialise simulation callbacks
         self.close_doors_callbacks = {
@@ -80,7 +82,7 @@ class Elevator():
         for callback in self.close_doors_callbacks["before"]:
             callback(None)
         self._close_doors()
-        await asyncio.sleep(self.door_action_duration)
+        await asyncio.sleep(self.door_action_duration * self.time_scale)
         self.to_doors_closed()
         for callback in self.close_doors_callbacks["after"]:
             callback(None)
@@ -89,7 +91,7 @@ class Elevator():
         for callback in self.open_doors_callbacks["before"]:
             callback(None)
         self._open_doors()
-        await asyncio.sleep(self.door_action_duration)
+        await asyncio.sleep(self.door_action_duration * self.time_scale)
         self.to_doors_open()
         for callback in self.close_doors_callbacks["after"]:
             callback(None)
@@ -113,7 +115,7 @@ class Elevator():
             # handle custom event callbacks
             for callback in self.move_to_callbacks["exit_floor"]:
                 callback()
-            await asyncio.sleep(self.floor_movement_duration)
+            await asyncio.sleep(self.floor_movement_duration * self.time_scale)
             self.floor = i
             for callback in self.move_to_callbacks["enter_floor"]:
                 callback()
@@ -250,10 +252,15 @@ class Passenger():
 
 
 class ElevatorSystem():
-    def __init__(self, name):
+    def __init__(self, name, *, num_floors=5, num_lifts=3):
         self.name = name
         self.elevators = []
         self.floors = {}
+
+        self.num_floors = num_floors
+        self.wait_times = []
+        self.travel_times = []
+        self.time_scale = 0.2
 
     def count_total_passengers(self):
         return sum([len(v) for k, v in self.floors.items()])
@@ -263,6 +270,33 @@ class ElevatorSystem():
             self.floors[floor] = []
         self.floors[floor].append(passengers)
 
+    def seed_floors(self, **kwargs):
+        max_passengers_per_floor = kwargs.get("max_passengers_per_floor", 5)
+
+        def generate_destination(source, max):
+            destination = source
+            while destination == source:
+                destination = random.randint(1, max)
+            return destination
+        for floor_number in range(1, self.num_floors + 1):
+            n_passengers = random.randint(0, max_passengers_per_floor)
+            self.floors[floor_number] = []
+            for i in range(n_passengers):
+                self.floors[floor_number].append(Passenger(destination=generate_destination(floor_number, self.num_floors)))
+
+    def record_passenger_wait_times(self, **kwargs):
+        boarded_passengers = kwargs["boarded_passengers"]
+        time_now = time.time()
+        for passenger in boarded_passengers:
+            self.wait_times.append(time_now - passenger.start_time)
+
+    def record_passenger_travel_times(self, **kwargs):
+        alighted_passengers = kwargs["alighted_passengers"]
+        time_now = time.time()
+        for passenger in alighted_passengers:
+            self.travel_times.append(time_now - passenger.start_time)
+
     # extend this method yourself
+
     def run_until_system_empty(self):
         raise Exception("You should not call the base implementation of this function!")
