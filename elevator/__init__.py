@@ -27,8 +27,8 @@ class Elevator():
         self.machine = Machine(model=self, states=Elevator.STATES, initial="doors_closed", send_event=True)
 
         # initialise simulation parameters
-        self.door_action_duration = 2  # the time in seconds it takes for the doors to open and close
-        self.floor_movement_duration = 0.15  # the time in seconds it takes for the elevator to travel one floor
+        self.door_action_duration = 1  # the time in seconds it takes for the doors to open and close
+        self.floor_movement_duration = 1  # the time in seconds it takes for the elevator to travel one floor
 
         # initialise simulation callbacks
         self.close_doors_callbacks = {
@@ -44,6 +44,14 @@ class Elevator():
             "enter_floor": [],
             "exit_floor": [],
             "stop_moving": [self.print_arrival_message]
+        }
+        self.loading_passengers_callbacks = {
+            "before": [],
+            "after": []
+        }
+        self.unloading_passengers_callbacks = {
+            "before": [],
+            "after": []
         }
         # initialise model parameters
         self.passenger_pax_capacity = 10
@@ -118,43 +126,63 @@ class Elevator():
     async def goto_home(self):
         await self.goto_floor(self.home_floor)
 
-    def load_passengers(self, passengers):
+    async def load_passengers(self, passengers):
         if self.state != "doors_open":
             raise ValueError("You tried to load passengers into {} while it was in state {}!".format(self.name, self.state))
-        passengers = passengers.copy()
+        # passengers = passengers.copy()
         for passenger in passengers:
             if type(passenger) is not Passenger:
                 raise ValueError("You tried to load something into {} that is not a passenger!".format(self.name))
             if passenger.destination == self.floor:
                 raise ValueError("You tried to load a passenger into {} whose destination is the same floor ({})".format(self.name, passenger.destination))
+        passengers_added = 0
+        boarding_passengers = []
         while True:
             if len(passengers) == 0:
-                return []
+                break
             next_passenger = passengers.pop(0)
             pax_capacity_exceeded = len(self.passengers) >= self.passenger_pax_capacity
             weight_capacity_exceeded = sum([p.weight for p in self.passengers]) > self.passenger_weight_capacity - next_passenger.weight
             if pax_capacity_exceeded or weight_capacity_exceeded:
-                passengers.insert(next_passenger, 0)
-                return passengers
+                passengers.insert(0, next_passenger)
+                break
             else:
+                passengers_added += 1
                 self.passengers.append(next_passenger)
-        raise Exception("Somehow, you managed to reach unreachable code")
+                boarding_passengers.append(next_passenger)
+        for callback in self.loading_passengers_callbacks["after"]:
+            callback(elevator=self, boarded_passengers=boarding_passengers)
+        return passengers
 
-    def unload_passengers(self):
+    async def unload_passengers(self):
         if self.state != "doors_open":
             raise ValueError("You tried to unload passengers from {} while it was in state {}!".format(self.name, self.state))
+        for callback in self.unloading_passengers_callbacks["before"]:
+            callback(elevator=self)
         alighting_passengers = list(filter(lambda p: p.destination == self.floor, self.passengers))
         self.passengers = list(filter(lambda p: p.destination != self.floor, self.passengers))
+        for callback in self.unloading_passengers_callbacks["after"]:
+            callback(elevator=self, alighted_passengers=alighting_passengers)
+
         return alighting_passengers
 
     def print_departure_message(self):
         direction = "up" if self.next > self.floor else "down"
         print(Elevator.MESSAGE_TEMPLATES["departure"].format(self.name, direction, self.next))
-        time.sleep(self.floor_movement_duration * abs(self.next - self.floor))
 
     def print_arrival_message(self):
         print(Elevator.MESSAGE_TEMPLATES["arrival"].format(self.name, self.next))
         self.floor = self.next
+
+    def print_loading_message(self, **kwargs):
+        elevator = kwargs["elevator"]
+        boarded_passengers = kwargs["alighted_passengers"]
+        print("Elevator {} loaded {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(boarded_passengers), elevator.floor, len(elevator.passengers)))
+
+    def print_unloading_message(self, **kwargs):
+        elevator = kwargs["elevator"]
+        alighted_passengers = kwargs["alighted_passengers"]
+        print("Elevator {} alighted {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(alighted_passengers), elevator.floor, len(elevator.passengers)))
 
     def set_floor(self, floor):
         if type(floor) is not int:
@@ -206,6 +234,8 @@ class Passenger():
     def __init__(self, *, destination=1, weight=60):
         self.destination = destination
         self.weight = weight
+        self.start_time = time.time()
+        self.board_time = time.time()
 
     def get_weight(self):
         return self._weight
@@ -233,8 +263,6 @@ class ElevatorSystem():
             self.floors[floor] = []
         self.floors[floor].append(passengers)
 
-    # to be extended based on implementation
+    # extend this method yourself
     def run_until_system_empty(self):
-        while self.count_total_passengers() != 0:
-            break
-            pass
+        raise Exception("You should not call the base implementation of this function!")
