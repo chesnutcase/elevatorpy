@@ -108,6 +108,7 @@ class SimpleElevator(Elevator):
         else:
             pass
 
+
 class SimpleFloor():
     def __init__(self):
         self.passengers = {
@@ -158,12 +159,12 @@ class SimpleElevatorSystem(ElevatorSystem):
         async def step(self):
             # get unserved calls
             up_unserved = [(k, floor) for (k, floor) in self.floor.items() if floor.served_by["up"] is None]
-            
+
         async def start_all_elevators():
             # assign calls
             for floor_no, floor in self.floors.items():
                 pass
-            
+
             await asyncio.gather(*[elevator.step(self) for elevator in self.elevators])
         while self.count_total_passengers() > 0:
             asyncio.run(start_all_elevators())

@@ -3,6 +3,7 @@ from transitions import Machine
 import asyncio
 import time
 import random
+import sys
 
 
 class Elevator():
@@ -20,9 +21,12 @@ class Elevator():
         "arrival": "{} arrived at floor {}"
     }
 
-    def __init__(self, *, name="Main Elevator", starting_floor=1, home_floor=1, passenger_pax_capacity=10):
+    def __init__(self, *, name="Main Elevator", starting_floor=1, home_floor=1, passenger_pax_capacity=10, stream=sys.stdout):
 
         self.name = name
+
+        # set the stream
+        self.stream = stream
 
         # initialise the state machine with its states
         self.machine = Machine(model=self, states=Elevator.STATES, initial="doors_closed", send_event=True)
@@ -97,10 +101,10 @@ class Elevator():
             callback(None)
 
     def print_doors_closing_message(self, event):
-        print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name))
+        print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name), file=self.stream)
 
     def print_doors_opening_message(self, event):
-        print(Elevator.MESSAGE_TEMPLATES["doors_opening"].format(self.name))
+        print(Elevator.MESSAGE_TEMPLATES["doors_opening"].format(self.name), file=self.stream)
 
     async def move_to(self, floor):
         starting_floor = self.floor
@@ -170,21 +174,21 @@ class Elevator():
 
     def print_departure_message(self):
         direction = "up" if self.next > self.floor else "down"
-        print(Elevator.MESSAGE_TEMPLATES["departure"].format(self.name, direction, self.next))
+        print(Elevator.MESSAGE_TEMPLATES["departure"].format(self.name, direction, self.next), file=self.stream)
 
     def print_arrival_message(self):
-        print(Elevator.MESSAGE_TEMPLATES["arrival"].format(self.name, self.next))
+        print(Elevator.MESSAGE_TEMPLATES["arrival"].format(self.name, self.next), file=self.stream)
         self.floor = self.next
 
     def print_loading_message(self, **kwargs):
         elevator = kwargs["elevator"]
         boarded_passengers = kwargs["boarded_passengers"]
-        print("Elevator {} loaded {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(boarded_passengers), elevator.floor, len(elevator.passengers)))
+        print("Elevator {} loaded {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(boarded_passengers), elevator.floor, len(elevator.passengers)), file=self.stream)
 
     def print_unloading_message(self, **kwargs):
         elevator = kwargs["elevator"]
         alighted_passengers = kwargs["alighted_passengers"]
-        print("Elevator {} alighted {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(alighted_passengers), elevator.floor, len(elevator.passengers)))
+        print("Elevator {} alighted {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(alighted_passengers), elevator.floor, len(elevator.passengers)), file=self.stream)
 
     def set_floor(self, floor):
         if type(floor) is not int:
