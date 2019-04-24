@@ -239,6 +239,14 @@ class Passenger():
         self.start_time = time.time()
         self.board_time = time.time()
 
+    def get_relative_direction(self, floor):
+        if self.destination > floor:
+            return "up"
+        elif self.destination < floor:
+            return "down"
+        else:
+            raise ValueError("Passenger floor same as destination")
+
     def get_weight(self):
         return self._weight
 
