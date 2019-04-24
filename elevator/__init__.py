@@ -49,11 +49,11 @@ class Elevator():
         }
         self.loading_passengers_callbacks = {
             "before": [],
-            "after": []
+            "after": [self.print_loading_message]
         }
         self.unloading_passengers_callbacks = {
             "before": [],
-            "after": []
+            "after": [self.print_unloading_message]
         }
         # initialise model parameters
         self.passenger_pax_capacity = 10
@@ -178,7 +178,7 @@ class Elevator():
 
     def print_loading_message(self, **kwargs):
         elevator = kwargs["elevator"]
-        boarded_passengers = kwargs["alighted_passengers"]
+        boarded_passengers = kwargs["boarded_passengers"]
         print("Elevator {} loaded {} passengers at floor {}, currently has {} passengers".format(elevator.name, len(boarded_passengers), elevator.floor, len(elevator.passengers)))
 
     def print_unloading_message(self, **kwargs):
