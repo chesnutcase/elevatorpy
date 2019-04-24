@@ -161,3 +161,5 @@ While it uses the concepts of finite state machines, the Elevator model is not s
 The list of `Passenger` objects currently in the elevator's carriage is stored in a list in the `passengers` instance variable.
 
 The current floor the elevator is at can be retrieved with the `floor` instance variable. The immediate destination (used by `goto_floor`) is stored in the `next` instance variable.
+
+(more stuff to come here on thursday evening, pls wait)
