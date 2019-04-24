@@ -84,27 +84,29 @@ class Elevator():
 
     async def close_doors(self):
         for callback in self.close_doors_callbacks["before"]:
-            callback(None)
+            callback(elevator=self)
         self._close_doors()
         await asyncio.sleep(self.door_action_duration * self.time_scale)
         self.to_doors_closed()
         for callback in self.close_doors_callbacks["after"]:
-            callback(None)
+            callback(elevator=self)
 
     async def open_doors(self):
         for callback in self.open_doors_callbacks["before"]:
-            callback(None)
+            callback(elevator=self)
         self._open_doors()
         await asyncio.sleep(self.door_action_duration * self.time_scale)
         self.to_doors_open()
         for callback in self.close_doors_callbacks["after"]:
-            callback(None)
+            callback(elevator=self)
 
-    def print_doors_closing_message(self, event):
-        print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(self.name), file=self.stream)
+    def print_doors_closing_message(self, **kwargs):
+        elevator = kwargs["elevator"]
+        print(Elevator.MESSAGE_TEMPLATES["doors_closing"].format(elevator.name), file=elevator.stream)
 
-    def print_doors_opening_message(self, event):
-        print(Elevator.MESSAGE_TEMPLATES["doors_opening"].format(self.name), file=self.stream)
+    def print_doors_opening_message(self, **kwargs):
+        elevator = kwargs["elevator"]
+        print(Elevator.MESSAGE_TEMPLATES["doors_opening"].format(elevator.name), file=elevator.stream)
 
     async def move_to(self, floor):
         starting_floor = self.floor
@@ -114,20 +116,20 @@ class Elevator():
         self._start_moving()
         # handle custom event callbacks
         for callback in self.move_to_callbacks["start_moving"]:
-            callback()
+            callback(elevator=self, dest=floor)
         for i in floor_range:
             # handle custom event callbacks
             for callback in self.move_to_callbacks["exit_floor"]:
-                callback()
+                callback(elevator=self, floor=i)
             await asyncio.sleep(self.floor_movement_duration * self.time_scale)
             self.floor = i
             for callback in self.move_to_callbacks["enter_floor"]:
-                callback()
+                callback(elevator=self, floor=i)
             # handle custom event callbacks
         self._stop_moving()
         # handle custom event callbacks
         for callback in self.move_to_callbacks["stop_moving"]:
-            callback()
+            callback(elevator=self, dest=floor)
 
     async def goto_home(self):
         await self.goto_floor(self.home_floor)
@@ -172,13 +174,15 @@ class Elevator():
 
         return alighting_passengers
 
-    def print_departure_message(self):
+    def print_departure_message(self, **kwargs):
+        elevator = kwargs["elevator"]
         direction = "up" if self.next > self.floor else "down"
-        print(Elevator.MESSAGE_TEMPLATES["departure"].format(self.name, direction, self.next), file=self.stream)
+        print(Elevator.MESSAGE_TEMPLATES["departure"].format(elevator.name, direction, elevator.next), file=elevator.stream)
 
-    def print_arrival_message(self):
-        print(Elevator.MESSAGE_TEMPLATES["arrival"].format(self.name, self.next), file=self.stream)
-        self.floor = self.next
+    def print_arrival_message(self, **kwargs):
+        elevator = kwargs["elevator"]
+        print(Elevator.MESSAGE_TEMPLATES["arrival"].format(elevator.name, elevator.next), file=elevator.stream)
+        elevator.floor = elevator.next
 
     def print_loading_message(self, **kwargs):
         elevator = kwargs["elevator"]
